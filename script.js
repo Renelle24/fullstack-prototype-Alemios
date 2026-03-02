@@ -49,17 +49,27 @@ function showToast(message, type = 'info') {
   setTimeout(() => el.remove(), 3500);
 }
 
-/* ── Auth state ── */
 function setAuthState(isAuth, user = null) {
   currentUser = user;
   const body = document.body;
+
   if (isAuth && user) {
     body.classList.remove('not-authenticated');
     body.classList.add('authenticated');
-    if (user.role === 'admin') body.classList.add('is-admin');
-    else body.classList.remove('is-admin');
-    document.getElementById('nav-username').textContent = `${user.firstName} ${user.lastName}`;
+
+    // Admin check
+    if (user.role === 'admin') {
+      body.classList.add('is-admin');
+    } else {
+      body.classList.remove('is-admin');
+    }
+
+    // Update navbar name
+    document.getElementById('nav-username').textContent =
+      `${user.firstName} ${user.lastName}`;
+
   } else {
+    currentUser = null;
     body.classList.remove('authenticated', 'is-admin');
     body.classList.add('not-authenticated');
   }
@@ -444,7 +454,7 @@ document.getElementById('dept-form').addEventListener('submit', function (e) {
     const d = window.db.departments.find(x => x.id === editingDeptId);
     Object.assign(d, { name, description });
     showToast('Department updated.', 'success');
-  } else {
+  } else {  
     window.db.departments.push({ id: 'dept-' + Date.now(), name, description });
     showToast('Department added.', 'success');
   }
