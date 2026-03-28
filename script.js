@@ -11,14 +11,13 @@ function loadFromStorage() {
     }
   } catch (e) { /* corrupt */ }
 
-  // Seed defaults
   window.db = {
     accounts: [
       {
         id: 'acc-admin',
         firstName: 'Admin',
         lastName: 'User',
-        email: 'admin@example.com',
+        email: 'admin143@gmail.com',
         password: 'Password123!',
         role: 'admin',
         verified: true
@@ -49,28 +48,21 @@ function showToast(message, type = 'info') {
   setTimeout(() => el.remove(), 3500);
 }
 
+/* ── Auth state ── */
 function setAuthState(isAuth, user = null) {
   currentUser = user;
   const body = document.body;
 
-  if (isAuth && user) {
-    body.classList.remove('not-authenticated');
-    body.classList.add('authenticated');
+  // Remove all auth classes first
+  body.classList.remove('authenticated', 'not-authenticated', 'is-admin');
 
-    // Admin check
+  if (isAuth && user) {
+    body.classList.add('authenticated');
     if (user.role === 'admin') {
       body.classList.add('is-admin');
-    } else {
-      body.classList.remove('is-admin');
     }
-
-    // Update navbar name
-    document.getElementById('nav-username').textContent =
-      `${user.firstName} ${user.lastName}`;
-
+    document.getElementById('nav-username').textContent = `${user.firstName} ${user.lastName}`;
   } else {
-    currentUser = null;
-    body.classList.remove('authenticated', 'is-admin');
     body.classList.add('not-authenticated');
   }
 }
@@ -229,17 +221,14 @@ function renderProfile() {
   }
 }
 
-/* Open Edit Profile modal — pre-fill all fields */
 document.getElementById('btn-edit-profile').addEventListener('click', function () {
   if (!currentUser) return;
 
-  // Fill basic fields
   document.getElementById('edit-first').value    = currentUser.firstName;
   document.getElementById('edit-last').value     = currentUser.lastName;
   document.getElementById('edit-email').value    = currentUser.email;
-  document.getElementById('edit-password').value = '';   // always blank for security
+  document.getElementById('edit-password').value = '';
 
-  // Populate department dropdown from window.db.departments
   const deptSel = document.getElementById('edit-dept');
   deptSel.innerHTML = '<option value="">— None / Not assigned —</option>';
   window.db.departments.forEach(d => {
@@ -249,14 +238,12 @@ document.getElementById('btn-edit-profile').addEventListener('click', function (
     deptSel.appendChild(opt);
   });
 
-  // Pre-select current employee's department if one exists
   const empRec = window.db.employees.find(e => e.email === currentUser.email);
   deptSel.value = empRec ? empRec.deptId : '';
 
   new bootstrap.Modal(document.getElementById('editProfileModal')).show();
 });
 
-/* Save Edit Profile */
 document.getElementById('edit-profile-form').addEventListener('submit', function (e) {
   e.preventDefault();
 
@@ -266,11 +253,9 @@ document.getElementById('edit-profile-form').addEventListener('submit', function
   const password   = document.getElementById('edit-password').value;
   const newDeptId  = document.getElementById('edit-dept').value;
 
-  // Validate
   if (!firstName || !lastName) { showToast('First and last name are required.', 'error'); return; }
   if (!email)                  { showToast('Email is required.', 'error'); return; }
 
-  // Check email not taken by a DIFFERENT account
   const conflict = window.db.accounts.find(a => a.email === email && a.id !== currentUser.id);
   if (conflict) { showToast('That email is already used by another account.', 'error'); return; }
 
@@ -279,31 +264,27 @@ document.getElementById('edit-profile-form').addEventListener('submit', function
     return;
   }
 
-  // 1. Update the account record in db
   const acc = window.db.accounts.find(a => a.id === currentUser.id);
   acc.firstName = firstName;
   acc.lastName  = lastName;
   acc.email     = email;
   if (password) acc.password = password;
 
-  // 2. Update department via the employee record (if one is linked to this email)
-  //    We match on the OLD email in case the user just changed it
   const empRec = window.db.employees.find(
     e => e.email === currentUser.email || e.email === email
   );
   if (empRec) {
-    empRec.email  = email;       // keep employee record in sync with new email
-    empRec.deptId = newDeptId;   // apply the selected department
+    empRec.email  = email;
+    empRec.deptId = newDeptId;
   }
 
-  // 3. If email changed, update auth_token so the session stays valid
   if (email !== currentUser.email) {
     localStorage.setItem('auth_token', email);
   }
 
   saveToStorage();
-  setAuthState(true, acc);   // refreshes currentUser + navbar username
-  renderProfile();           // refreshes profile page display
+  setAuthState(true, acc);
+  renderProfile();
 
   bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
   showToast('Profile updated successfully!', 'success');
@@ -441,8 +422,6 @@ window.editDept = function (id) {
   new bootstrap.Modal(document.getElementById('deptModal')).show();
 };
 
-/* The submit button lives INSIDE the <form> tag in the HTML,
-   so this event reliably fires every time.                    */
 document.getElementById('dept-form').addEventListener('submit', function (e) {
   e.preventDefault();
   const name        = document.getElementById('dept-name').value.trim();
@@ -454,7 +433,7 @@ document.getElementById('dept-form').addEventListener('submit', function (e) {
     const d = window.db.departments.find(x => x.id === editingDeptId);
     Object.assign(d, { name, description });
     showToast('Department updated.', 'success');
-  } else {  
+  } else {
     window.db.departments.push({ id: 'dept-' + Date.now(), name, description });
     showToast('Department added.', 'success');
   }
@@ -498,7 +477,6 @@ function renderEmployeesTable() {
 
 let editingEmployeeId = null;
 
-/* Helper: rebuild any <select> element with all current departments */
 function populateDeptDropdown(selectId, selectedDeptId = '') {
   const sel = document.getElementById(selectId);
   sel.innerHTML = '<option value="">Select department</option>';
@@ -523,7 +501,7 @@ window.openEditEmployee = function (id) {
   const emp = window.db.employees.find(e => e.id === id);
   if (!emp) return;
   editingEmployeeId = id;
-  populateDeptDropdown('emp-dept', emp.deptId);   // pass current deptId so it's pre-selected
+  populateDeptDropdown('emp-dept', emp.deptId);
   document.getElementById('emp-id').value       = emp.employeeId;
   document.getElementById('emp-email').value    = emp.email;
   document.getElementById('emp-position').value = emp.position;
@@ -583,7 +561,6 @@ function renderRequestsList() {
   const tbody  = document.getElementById('requests-tbody');
   tbody.innerHTML = '';
 
-  // Admin sees ALL requests; regular user sees only their own
   const list = currentUser.role === 'admin'
     ? window.db.requests
     : window.db.requests.filter(r => r.employeeEmail === currentUser.email);
